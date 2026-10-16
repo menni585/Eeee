@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KI Wort- & Satz-Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans">
+
+    <!-- HEADER -->
+    <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur sticky top-0 z-10">
+        <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg">
+                    <i data-lucide="mic-vocal" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white">KI Sprach- & Satz-Generator</h1>
+                    <p class="text-xs text-gray-400">Sag ein Wort, schreib deinen Wunsch dazu & lass es sprechen</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-2xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- SCHRITT 1: WORT SAGEN -->
+        <section class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400">Schritt 1</span>
+            <h2 class="text-base font-bold text-white mt-0.5">Wort einsprechen</h2>
+            <p class="text-xs text-gray-400 mb-4">Drücke auf den Button und sprich ein einzelnes Wort.</p>
+
+            <div class="flex flex-col items-center justify-center p-6 bg-gray-950/60 rounded-xl border border-gray-800 text-center space-y-3">
+                <button id="btn-speak-word" class="p-5 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-lg transition transform hover:scale-105">
+                    <i data-lucide="mic" class="w-8 h-8"></i>
+                </button>
+                <span id="speech-status" class="text-xs text-gray-400">Klicke zum Sprechen</span>
+                <div class="text-xl font-bold text-indigo-400" id="word-display">—</div>
+            </div>
+        </section>
+
+        <!-- SCHRITT 2: ANWEISUNG SCHREIBEN -->
+        <section class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-400">Schritt 2</span>
+            <h2 class="text-base font-bold text-white mt-0.5">Was soll die KI daraus sagen?</h2>
+            <p class="text-xs text-gray-400 mb-4">Schreibe deine Anweisung, wie das Wort eingebaut oder worüber gesprochen werden soll.</p>
+
+            <textarea id="prompt-input" rows="3" placeholder="z.B. Mach einen lustigen Satz darüber, warum dieses Wort die Welt retten wird..." class="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-purple-500"></textarea>
+        </section>
+
+        <!-- SCHRITT 3: GENERIEREN & SPRECHEN BUTTON -->
+        <section class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-4">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Schritt 3</span>
+            <h2 class="text-base font-bold text-white mt-0.5">Generieren & Vorlesen</h2>
+            <p class="text-xs text-gray-400">Drücke den Button, um den Satz erstellen zu lassen und sofort vorlesen zu lassen.</p>
+
+            <button id="btn-generate-speak" disabled class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-medium py-3.5 rounded-xl transition shadow-lg flex items-center justify-center space-x-2">
+                <i data-lucide="volume-2" class="w-5 h-5"></i>
+                <span>Satz erstellen & Vorlesen</span>
+            </button>
+
+            <!-- ERGEBNIS ANZEIGE -->
+            <div id="result-box" class="hidden mt-4 bg-gray-950 p-4 rounded-xl border border-gray-800">
+                <span class="text-xs text-gray-500 block mb-1">Generierter Satz:</span>
+                <p id="result-text" class="text-base text-gray-100 italic"></p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- LOGIC -->
+    <script>
+        let capturedWord = "";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            setupSpeechRecognition();
+        });
+
+        const btnSpeakWord = document.getElementById('btn-speak-word');
+        const speechStatus = document.getElementById('speech-status');
+        const wordDisplay = document.getElementById('word-display');
+        const promptInput = document.getElementById('prompt-input');
+        const btnGenerateSpeak = document.getElementById('btn-generate-speak');
+        const resultBox = document.getElementById('result-box');
+        const resultText = document.getElementById('result-text');
+
+        function setupSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                speechStatus.innerText = "Spracherkennung nicht unterstützt (nutze Chrome/Edge).";
+                btnSpeakWord.disabled = true;
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'de-DE';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            btnSpeakWord.addEventListener('click', () => {
+                recognition.start();
+                speechStatus.innerText = "Höre zu... Sprich jetzt ein Wort!";
+                btnSpeakWord.classList.add('animate-pulse');
+            });
+
+            recognition.onresult = (e) => {
+                const transcript = e.results[0][0].transcript.trim();
+                capturedWord = transcript.split(' ')[0]; // Nimm das erste Wort
+                wordDisplay.innerText = `"${capturedWord}"`;
+                speechStatus.innerText = "Wort erfolgreich erfasst!";
+                btnSpeakWord.classList.remove('animate-pulse');
+                checkReadyState();
+            };
+
+            recognition.onerror = () => {
+                speechStatus.innerText = "Fehler bei der Erkennung. Erneut versuchen.";
+                btnSpeakWord.classList.remove('animate-pulse');
+            };
+
+            recognition.onend = () => {
+                btnSpeakWord.classList.remove('animate-pulse');
+            };
+        }
+
+        promptInput.addEventListener('input', checkReadyState);
+
+        function checkReadyState() {
+            if (capturedWord.length > 0 && promptInput.value.trim().length > 0) {
+                btnGenerateSpeak.disabled = false;
+            } else {
+                btnGenerateSpeak.disabled = true;
+            }
+        }
+
+        // Klick auf den Haupt-Button
+        btnGenerateSpeak.addEventListener('click', () => {
+            const userPrompt = promptInput.value.trim();
+
+            // KI-Satz Erstellung basierend auf dem Wort und der Benutzereingabe
+            let generatedSentence = generateAISentence(capturedWord, userPrompt);
+
+            resultText.innerText = `"${generatedSentence}"`;
+            resultBox.classList.remove('hidden');
+
+            // Direkt per Browser Text-to-Speech vorlesen lassen
+            speakText(generatedSentence);
+        });
+
+        function generateAISentence(word, instruction) {
+            // Intelligente Satzkonstruktion basierend auf der Nutzeranweisung & dem Wort
+            const lowerInst = instruction.toLowerCase();
+            
+            if (lowerInst.includes('lustig') || lowerInst.includes('witz')) {
+                return `Achtung, Welt! Wegen ${word} passiert jetzt folgendes: ${instruction} – ziemlich verrückt, oder?`;
+            } else if (lowerInst.includes('ernst') || lowerInst.includes('wichtig')) {
+                return `Im Hinblick auf ${word} gilt es zu beachten: ${instruction}. Das ist ein wesentlicher Punkt.`;
+            } else {
+                return `Hier ist dein gewünschter Satz zum Wort ${word}: ${instruction}.`;
+            }
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'de-DE';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Sprachausgabe wird von deinem Browser nicht unterstützt.");
+            }
+        }
+    </script>
+</body>
+</html>
